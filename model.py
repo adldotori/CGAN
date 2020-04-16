@@ -81,13 +81,23 @@ class Discriminator(nn.Module):
     def __init__(self):
         super().__init__()
         self.pieces = 5
+        self.pieces_cb = 4
         self.units_x = 240
         self.units_y = 50
+        self.units_cb = 240
+        
         self.maxout_x = Maxout(self.units_x)
         self.maxout_y = Maxout(self.units_y)
-        self.layer_x = nn.ModuleList([nn.Linear(3 * 784, self.units_x)]* 5)
-        self.layer_y = nn.ModuleList([nn.Linear(10, self.units_y)] * 5)
+        self.maxout_cb = Maxout(self.units_cb)
 
+        self.layer_x = nn.ModuleList([nn.Linear(3 * 784, self.units_x)]* self.pieces)
+        self.layer_y = nn.ModuleList([nn.Linear(10, self.units_y)] * self.pieces)
+        self.layer_cb = nn.ModuleList([nn.Linear(self.units_x + self.units_y, self.units_cb)] * self.pieces_cb)
+
+        self.layer_final = nn.Sequential(
+                            nn.Linear(self.units_cb, 1),
+                            nn.Sigmoid()
+        )
     def forward(self, x, y):
         x = x.view(x.shape[0], -1)
         x = [self.layer_x[i](x) for i in range(self.pieces)]
@@ -97,7 +107,14 @@ class Discriminator(nn.Module):
         y = [self.layer_y[i](y) for i in range(self.pieces)]
         y = torch.cat(y, 1)
         y = self.maxout_y(y)
-        print(y.shape)
+
+        cb = torch.cat([x,y], 1)
+        cb = [self.layer_cb[i](cb) for i in range(self.pieces_cb)]
+        cb = torch.cat(cb, 1)
+        cb = self.maxout_cb(cb)
+
+        ret = self.layer_final(cb)
+        return ret
 
 if __name__ == '__main__':
     batch_size = 3
@@ -114,3 +131,4 @@ if __name__ == '__main__':
     discriminator.cuda()
     image = torch.randn(batch_size, 3, 28, 28).cuda()
     dis = discriminator(image, label)
+    print(dis.shape)
