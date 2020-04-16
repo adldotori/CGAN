@@ -8,9 +8,9 @@ import torch.utils.data as data
 from torchvision import datasets, transforms
 
 class MNISTDataset(data.Dataset):
-    def __init__(self, opt):
+    def __init__(self, mode):
         super(MNISTDataset, self).__init__()
-        if opt.train:
+        if mode == 'train':
             self.dataset = datasets.MNIST('../data', train=True, download=True,
                         transform=transforms.Compose([
                             transforms.ToTensor(),
@@ -22,7 +22,7 @@ class MNISTDataset(data.Dataset):
                             transforms.ToTensor(),
                             transforms.Normalize((0.1307,), (0.3081,))
                         ])) 
-    
+
     def name(self):
         return "MNISTDataset"
 
@@ -33,12 +33,12 @@ class MNISTDataset(data.Dataset):
         return len(self.dataset)
 
 class MNISTDataloader(object):
-    def __init__(self, opt, dataset):
+    def __init__(self, mode, opt, dataset):
         super(MNISTDataloader, self).__init__()
         use_cuda = not torch.cuda.is_available()
         kwargs = {'num_workers': opt.num_workers} if use_cuda else {}
 
-        if opt.train:
+        if mode == 'train':
             self.data_loader = torch.utils.data.DataLoader(
                 dataset, batch_size=opt.batch_size, shuffle=True, **kwargs)
         else:
@@ -60,19 +60,19 @@ if __name__ == '__main__':
 
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('-t', '--train', type=bool, default = True)
-    parser.add_argument('-n', '--num-workers', type=int,default = 4)
-    parser.add_argument('-b', '--batch-size', type=int, default = 12)
+    parser.add_argument('-n', '--num-workers', type=int, default = 4)
+    parser.add_argument('-e', '--epoch', type=int, default=40)
+    parser.add_argument('-b', '--batch-size', type=int, default = 100)
     parser.add_argument('--test-batch-size', type=int, default = 1)
     opt = parser.parse_args()
 
-    if opt.train:
-        print('[+] Test train dataset')
-    else:
-        print('[+] Test test dataset')
+    train_dataset = MNISTDataset('train')
+    train_data_loader = MNISTDataloader('train', opt, train_dataset)
 
-    dataset = MNISTDataset(opt)
-    data_loader = MNISTDataloader(opt, dataset)
+    test_dataset = MNISTDataset('test')
+    test_data_loader = MNISTDataloader('test', opt, test_dataset)
 
-    print('[+] Size of the dataset: %05d, dataloader: %04d' \
-        % (len(dataset), len(data_loader.data_loader)))
+    print('[+] Size of the train dataset: %05d, train dataloader: %04d' \
+        % (len(train_dataset), len(train_data_loader.data_loader)))   
+    print('[+] Size of the test dataset: %05d, test dataloader: %04d' \
+        % (len(test_dataset), len(test_data_loader.data_loader)))
