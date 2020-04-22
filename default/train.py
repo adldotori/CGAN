@@ -12,12 +12,10 @@ from model import *
 from loss import *
 from dataloader import *
 
-MAX_EPOCHS = 200
-
 def get_opt():
     parser = argparse.ArgumentParser()
     parser.add_argument('-n', '--num-workers', type=int, default = 4)
-    parser.add_argument('-e', '--epoch', type=int, default=50)
+    parser.add_argument('-e', '--epoch', type=int, default=400)
     parser.add_argument('-b', '--batch-size', type=int, default = 100)
     parser.add_argument('-d', '--display-step', type=int, default = 600)
     opt = parser.parse_args()
@@ -45,7 +43,7 @@ def train(opt):
 
     writer = SummaryWriter()
 
-    for epoch in range(MAX_EPOCHS):
+    for epoch in range(opt.epoch):
         for i in range(len(train_data_loader.data_loader)):
             step = epoch * len(train_data_loader.data_loader) + i + 1
             # load dataset only batch_size
@@ -65,7 +63,7 @@ def train(opt):
             gen = generator(noise, fake_label)
             validity = discriminator(gen, fake_label)
             
-            loss_gen = loss(validity, Variable(torch.ones(opt.batch_size,)).cuda())
+            loss_gen = loss(validity, Variable(torch.ones(opt.batch_size,1)).cuda())
             loss_gen.backward()
             optim_gen.step()
             
@@ -73,10 +71,10 @@ def train(opt):
             optim_dis.zero_grad()
 
             validity_real = discriminator(image, label)
-            loss_dis_real = loss(validity_real, Variable(torch.ones(opt.batch_size,)).cuda())
+            loss_dis_real = loss(validity_real, Variable(torch.ones(opt.batch_size,1)).cuda())
 
             validity_fake = discriminator(gen.detach(), fake_label)
-            loss_dis_fake = loss(validity_fake, Variable(torch.zeros(opt.batch_size,)).cuda())
+            loss_dis_fake = loss(validity_fake, Variable(torch.zeros(opt.batch_size,1)).cuda())
 
             loss_dis = loss_dis_real + loss_dis_fake
             loss_dis.backward()
@@ -104,7 +102,7 @@ def train(opt):
                 grid = make_grid(sample_images, nrow=5, normalize=True)
                 writer.add_image('sample_image', grid, step)
 
-                torch.save(generator.state_dict(), 'checkpoint.pt')
+                torch.save(generator.state_dict(), 'checkpoint_.pt')
 
 if __name__ == '__main__':
     os.environ['CUDA_VISIBLE_DEVICES'] = '1'

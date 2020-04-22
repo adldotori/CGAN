@@ -71,7 +71,7 @@ class Discriminator(nn.Module):
         x = x.view(x.size(0), 784)
         ret = torch.cat([x, y], 1)
         ret = self.model(ret)
-        return ret.squeeze()
+        return ret
 
 if __name__ == '__main__':
     batch_size = 1
