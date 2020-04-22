@@ -12,8 +12,8 @@ class Loss(nn.Module):
 if __name__ == '__main__':
     batch_size = 3
 
-    x = torch.rand(batch_size, 1).cuda()
-    y = torch.rand(batch_size, 1).cuda()
+    x = torch.rand(batch_size,).cuda()
+    y = torch.rand(batch_size,).cuda()
 
     criterion = Loss()
     loss = criterion(x, y)

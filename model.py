@@ -3,27 +3,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 
-# https://gist.github.com/davidtvs/3b4c559a0a1ef36478034d9425367ceb
-class Maxout(nn.Module):
-    def __init__(self, output_channels, axis=1):
-        super().__init__()
-        self.output_channels = output_channels
-        self.axis = axis
-
-    def forward(self, x):
-        num_channels = x.size(self.axis)
-        if num_channels % self.output_channels:
-            raise ValueError(
-                "number of input channels({}) is not a multiple of output_channels({})".format(
-                    num_channels, self.output_channels
-                )
-            )
-        shape = list(x.shape)
-        shape[self.axis] = self.output_channels
-        shape.insert(self.axis + 1, num_channels // self.output_channels)
-
-        return x.view(shape).max(self.axis + 1)[0]
-
 # https://gist.github.com/jacobkimmel/4ccdc682a45662e514997f724297f39f
 def make_one_hot(labels, C=2):
     '''
@@ -52,96 +31,50 @@ def make_one_hot(labels, C=2):
 class Generator(nn.Module):
     def __init__(self):
         super().__init__()
-        
-        self.layer_z = nn.Sequential(
-                            nn.Linear(100, 200),
-                            nn.ReLU()
-        )
-        self.layer_y = nn.Sequential(
-                            nn.Linear(10, 1000),
-                            nn.ReLU()
-        )
-        self.layer_cb = nn.Sequential(
-                                nn.Linear(1200, 1200),
-                                nn.ReLU()
-        )
-        self.sigmoid = nn.Sequential(
-                                nn.Linear(1200, 784),
-                                nn.Sigmoid()
-        )
+    
+        self.model = nn.Sequential(
+            nn.Linear(110, 256),
+            nn.ReLU(),
+            nn.Linear(256, 512),
+            nn.ReLU(),
+            nn.Linear(512, 1024),
+            nn.ReLU(),
+            nn.Linear(1024, 784),
+            nn.Tanh()
+        ) 
 
     def forward(self, z, y):
-        z = self.layer_z(z)
-        y = self.layer_y(y)
-        ret = self.layer_cb(torch.cat([z,y], 1))
-        ret = self.sigmoid(ret)
-        return ret.view(z.shape[0], -1, 28, 28)
+        z = z.view(z.size(0), 100)
+        ret = torch.cat([z, y], 1)
+        ret = self.model(ret)
+        return ret.view(z.size(0), -1, 28, 28)
          
 class Discriminator(nn.Module):
     def __init__(self):
         super().__init__()
-        self.pieces = 5
-        self.pieces_cb = 4
-        self.units_x = 240
-        self.units_y = 50
-        self.units_cb = 240
-        
-        self.maxout_x = Maxout(self.units_x)
-        self.maxout_y = Maxout(self.units_y)
-        self.maxout_cb = Maxout(self.units_cb)
 
-        self.layer_x = nn.ModuleList([nn.Linear(784, self.units_x)]* self.pieces)
-        self.layer_y = nn.ModuleList([nn.Linear(10, self.units_y)] * self.pieces)
-        self.layer_cb = nn.ModuleList([nn.Linear(self.units_x + self.units_y, self.units_cb)] * self.pieces_cb)
-
-        self.layer_final = nn.Sequential(
-                            nn.Linear(self.units_cb, 1),
-                            nn.Sigmoid()
-        )
-
-        # self.label_emb = nn.Embedding(10, 10)
-                
         self.model = nn.Sequential(
             nn.Linear(794, 1024),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Dropout(0.3),
+            nn.ReLU(),
+            nn.Dropout(0.5),
             nn.Linear(1024, 512),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Dropout(0.3),
+            nn.ReLU(),
+            nn.Dropout(0.5),
             nn.Linear(512, 256),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Dropout(0.3),
+            nn.ReLU(),
+            nn.Dropout(0.5),
             nn.Linear(256, 1),
             nn.Sigmoid()
         )
 
     def forward(self, x, y):
-        # x = x.view(x.shape[0], -1)
-        # x = [self.layer_x[i](x) for i in range(self.pieces)]
-        # x = torch.cat(x, 1)
-        # x = self.maxout_x(x)
-
-        # y = [self.layer_y[i](y) for i in range(self.pieces)]
-        # y = torch.cat(y, 1)
-        # y = self.maxout_y(y)
-
-        # cb = torch.cat([x,y], 1)
-        # cb = [self.layer_cb[i](cb) for i in range(self.pieces_cb)]
-        # cb = torch.cat(cb, 1)
-        # cb = self.maxout_cb(cb)
-
-        # ret = self.layer_final(cb)
-        # return ret
-            
         x = x.view(x.size(0), 784)
-        # c = self.label_emb(y)
-        x = torch.cat([x, y], 1)
-        out = self.model(x)
-        return out.squeeze()
-        
+        ret = torch.cat([x, y], 1)
+        ret = self.model(ret)
+        return ret.squeeze()
 
 if __name__ == '__main__':
-    batch_size = 4
+    batch_size = 1
 
     generator = Generator()
     generator.cuda()
@@ -153,6 +86,6 @@ if __name__ == '__main__':
 
     discriminator = Discriminator()
     discriminator.cuda()
-    image = torch.randn(batch_size, 28, 28).cuda()
+    image = torch.rand(batch_size, 1, 28, 28).cuda()
     dis = discriminator(image, label_oh)
     print(dis.shape)
