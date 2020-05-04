@@ -1,1 +1,0 @@
-* Only use data which has paritial condition
